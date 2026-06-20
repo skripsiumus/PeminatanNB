@@ -284,7 +284,7 @@ def metric_card(label: str, value: str):
 # =========================================================
 # SIDEBAR
 # =========================================================
-st.sidebar.title("🎓 Naive Bayes")
+st.sidebar.title("🎓 Ravena - Naive Bayes")
 st.sidebar.caption("Klasifikasi Peminatan Perguruan Tinggi")
 
 uploaded_file = st.sidebar.file_uploader(
