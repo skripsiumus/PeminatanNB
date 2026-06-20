@@ -10,7 +10,7 @@ import streamlit as st
 # KONFIGURASI HALAMAN
 # =========================================================
 st.set_page_config(
-    page_title="Naive Bayes Peminatan PT",
+    page_title="Ravena - Naive Bayes Peminatan PT",
     page_icon="🎓",
     layout="wide",
 )
