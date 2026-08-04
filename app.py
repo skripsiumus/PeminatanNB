@@ -10,7 +10,7 @@ import streamlit as st
 # KONFIGURASI HALAMAN
 # =========================================================
 st.set_page_config(
-    page_title="Ravena - Naive Bayes Peminatan PT",
+    page_title="Naive Bayes Peminatan PT",
     page_icon="🎓",
     layout="wide",
 )
@@ -78,6 +78,125 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+# =========================================================
+# HALAMAN SELAMAT DATANG
+# =========================================================
+if "halaman_aktif" not in st.session_state:
+    st.session_state.halaman_aktif = "welcome"
+
+if st.session_state.halaman_aktif == "welcome":
+    st.markdown(
+        """
+        <style>
+        [data-testid="stSidebar"] {display: none;}
+        [data-testid="stHeader"] {background: transparent;}
+        .block-container {
+            max-width: 1180px;
+            padding-top: 3rem;
+            padding-bottom: 3rem;
+        }
+        .welcome-wrapper {
+            min-height: 76vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .welcome-card {
+            width: 100%;
+            padding: 54px 46px;
+            border-radius: 30px;
+            text-align: center;
+            background: linear-gradient(145deg, #ecfdf5 0%, #ffffff 48%, #eff6ff 100%);
+            border: 1px solid #bbf7d0;
+            box-shadow: 0 22px 55px rgba(15, 23, 42, 0.13);
+        }
+        .welcome-icon {font-size: 74px; margin-bottom: 8px;}
+        .welcome-title {
+            font-size: clamp(38px, 6vw, 68px);
+            font-weight: 900;
+            line-height: 1.05;
+            color: #14532d;
+            margin: 0 0 18px 0;
+            letter-spacing: -1px;
+        }
+        .welcome-subtitle {
+            font-size: clamp(20px, 2.3vw, 30px);
+            font-weight: 750;
+            color: #0f172a;
+            line-height: 1.35;
+            margin-bottom: 16px;
+        }
+        .welcome-description {
+            max-width: 820px;
+            margin: 0 auto 30px auto;
+            color: #475569;
+            font-size: 17px;
+            line-height: 1.75;
+        }
+        .method-badge {
+            display: inline-block;
+            padding: 9px 18px;
+            margin-bottom: 26px;
+            border-radius: 999px;
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #86efac;
+            font-weight: 800;
+        }
+        .welcome-footer {
+            margin-top: 26px;
+            color: #64748b;
+            font-size: 14px;
+        }
+        div.stButton > button {
+            min-height: 54px;
+            border-radius: 14px;
+            border: 0;
+            font-size: 18px;
+            font-weight: 800;
+            background: linear-gradient(90deg, #15803d, #0f766e);
+            color: white;
+            box-shadow: 0 10px 24px rgba(21, 128, 61, 0.24);
+        }
+        div.stButton > button:hover {
+            color: white;
+            border: 0;
+            transform: translateY(-1px);
+        }
+        </style>
+        <div class="welcome-wrapper">
+            <div class="welcome-card">
+                <div class="welcome-icon">🎓</div>
+                <div class="welcome-title">SELAMAT DATANG</div>
+                <div class="welcome-subtitle">
+                    Sistem Klasifikasi Minat Pendidikan Tinggi<br>
+                    Siswa SMK Al-Ikhlas Losari
+                </div>
+                <div class="method-badge">Menggunakan Algoritma Naive Bayes</div>
+                <div class="welcome-description">
+                    Aplikasi ini membantu mengelompokkan minat siswa kelas XII untuk melanjutkan
+                    pendidikan ke perguruan tinggi berdasarkan data yang tersedia. Tekan tombol
+                    di bawah untuk masuk ke dashboard utama, melakukan prediksi, melihat data siswa,
+                    serta mempelajari hasil perhitungan probabilitas.
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    left_space, center_button, right_space = st.columns([1.6, 1, 1.6])
+    with center_button:
+        if st.button("🚀 MASUK KE DASHBOARD", use_container_width=True):
+            st.session_state.halaman_aktif = "dashboard"
+            st.rerun()
+
+    st.markdown(
+        '<div class="welcome-footer" style="text-align:center">© 2026 SMK Al-Ikhlas Losari — Sistem Klasifikasi Minat Pendidikan Tinggi</div>',
+        unsafe_allow_html=True,
+    )
+    st.stop()
 
 DEFAULT_DATA_FILE = Path(__file__).with_name("data_peminatan_naive_bayes.xlsx")
 FEATURES = ["Jurusan", "Rombel", "Jenis Kelamin"]
@@ -284,8 +403,13 @@ def metric_card(label: str, value: str):
 # =========================================================
 # SIDEBAR
 # =========================================================
-st.sidebar.title("🎓 Ravena - Naive Bayes")
-st.sidebar.caption("Klasifikasi Peminatan Perguruan Tinggi")
+st.sidebar.title("🎓 Naive Bayes")
+st.sidebar.caption("Klasifikasi Minat Pendidikan Tinggi")
+
+if st.sidebar.button("🏠 Kembali ke Halaman Depan", use_container_width=True):
+    st.session_state.halaman_aktif = "welcome"
+    st.rerun()
+
 
 uploaded_file = st.sidebar.file_uploader(
     "Upload Excel data siswa",
@@ -313,14 +437,14 @@ except Exception as exc:
 # =========================================================
 # HEADER
 # =========================================================
-st.markdown('<div class="main-title">Website Klasifikasi Peminatan Perguruan Tinggi</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">Website Klasifikasi Minat Pendidikan Tinggi</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="subtitle">Metode Naive Bayes dengan dua keputusan: <b>Minat</b> dan <b>Tidak minat</b>.</div>',
+    '<div class="subtitle">Analisis data siswa kelas XII tahun 2026 menggunakan metode Naive Bayes dengan dua keputusan: <b>Minat</b> dan <b>Tidak minat</b>.</div>',
     unsafe_allow_html=True,
 )
 
 if TARGET not in pd.read_excel(DEFAULT_DATA_FILE, sheet_name="Data_Siswa", nrows=1).columns and uploaded_file is None:
-    st.warning("File default belum memiliki label asli. Aplikasi memakai label contoh otomatis.")
+    st.warning("File default belum memiliki label asli. Aplikasi memakai label simulasi dan harus diganti dengan hasil kuesioner untuk penelitian final.")
 
 # =========================================================
 # MENU DASHBOARD
@@ -339,7 +463,7 @@ if menu == "Dashboard":
     with c3:
         metric_card("Keputusan Tidak minat", f"{total_tidak}")
     with c4:
-        metric_card("Akurasi label latih", f"{akurasi:.2%}")
+        metric_card("Akurasi model", f"{akurasi:.2%}")
 
     st.markdown("---")
 
@@ -397,8 +521,11 @@ if menu == "Dashboard":
     st.markdown(
         """
         <div class="note-box">
-        <b>Catatan:</b> Jika label aktual berasal dari asumsi, hasil klasifikasi ini digunakan sebagai contoh perhitungan.
-        Untuk penelitian sebenarnya, gunakan label hasil kuesioner atau wawancara siswa.
+        <b>Catatan metodologis:</b> Data siswa telah diperbarui menggunakan data kelas XII tahun 2026 sebanyak 116 siswa.
+        Karena berkas sumber belum memuat jawaban kuesioner minat pendidikan tinggi, label bawaan pada file contoh
+        bersifat simulasi untuk pengujian aplikasi. Nilai akurasi yang tampil dihitung otomatis dari perbandingan
+        hasil prediksi dan label pada file. Untuk hasil penelitian final, ganti kolom label dengan hasil kuesioner
+        atau wawancara siswa yang sebenarnya.
         </div>
         """,
         unsafe_allow_html=True,
