@@ -1,28 +1,35 @@
-# Website Streamlit Naive Bayes Peminatan Perguruan Tinggi
+# Streamlit Naive Bayes — SMK Al-Ikhlas Losari
 
-Website ini digunakan untuk melakukan klasifikasi peminatan perguruan tinggi dengan dua kelas:
+Aplikasi klasifikasi minat pendidikan tinggi siswa kelas XII menggunakan algoritma Naive Bayes.
 
-- Minat
-- Tidak minat
+## Login demo lokal
 
-## Cara menjalankan di laptop
+- Username: `admin`
+- Password: `admin123`
+
+Untuk deployment, gunakan Streamlit Secrets agar password tidak ditulis langsung di source code.
+
+## Menjalankan di komputer
 
 ```bash
 pip install -r requirements.txt
 streamlit run app.py
 ```
 
-## Cara deploy ke Streamlit Cloud
+## Deploy ke Streamlit Community Cloud
 
-1. Upload semua file ke GitHub:
-   - `app.py`
-   - `requirements.txt`
-   - `data_peminatan_naive_bayes.xlsx`
-2. Buka https://streamlit.io/cloud
-3. Pilih repository GitHub
-4. Main file path isi dengan: `app.py`
-5. Klik Deploy
+1. Buat repository GitHub baru.
+2. Unggah `app.py`, `requirements.txt`, dan `data_peminatan_naive_bayes.xlsx`.
+3. Masuk ke Streamlit Community Cloud dan pilih **Create app**.
+4. Pilih repository, branch `main`, dan main file `app.py`.
+5. Buka **Advanced settings > Secrets**, lalu isi:
 
-## Catatan data
+```toml
+[login]
+username = "admin"
+password = "password_kuat_anda"
+```
 
-Apabila file Excel belum memiliki label aktual `Minat/Tidak minat`, aplikasi akan membuat label contoh otomatis berdasarkan jurusan. Untuk penelitian sebenarnya, sebaiknya label diganti dengan hasil kuesioner atau wawancara siswa.
+6. Klik **Deploy**.
+
+Jangan unggah file `.streamlit/secrets.toml` yang berisi password asli ke GitHub.

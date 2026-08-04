@@ -80,120 +80,89 @@ st.markdown(
 )
 
 # =========================================================
-# HALAMAN SELAMAT DATANG
+# HALAMAN LOGIN
 # =========================================================
-if "halaman_aktif" not in st.session_state:
-    st.session_state.halaman_aktif = "welcome"
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+if "username" not in st.session_state:
+    st.session_state.username = ""
 
-if st.session_state.halaman_aktif == "welcome":
+
+def get_login_credentials() -> tuple[str, str]:
+    """Mengambil kredensial dari Streamlit Secrets dengan fallback lokal."""
+    try:
+        username = st.secrets["login"]["username"]
+        password = st.secrets["login"]["password"]
+        return str(username), str(password)
+    except (KeyError, FileNotFoundError):
+        return "admin", "admin123"
+
+
+if not st.session_state.authenticated:
     st.markdown(
         """
         <style>
         [data-testid="stSidebar"] {display: none;}
         [data-testid="stHeader"] {background: transparent;}
-        .block-container {
-            max-width: 1180px;
-            padding-top: 3rem;
-            padding-bottom: 3rem;
-        }
-        .welcome-wrapper {
-            min-height: 76vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .welcome-card {
-            width: 100%;
-            padding: 54px 46px;
-            border-radius: 30px;
+        .block-container {max-width: 920px; padding-top: 3rem; padding-bottom: 3rem;}
+        .login-card {
+            padding: 42px 46px 28px 46px;
+            border-radius: 28px;
             text-align: center;
-            background: linear-gradient(145deg, #ecfdf5 0%, #ffffff 48%, #eff6ff 100%);
+            background: linear-gradient(145deg, #ecfdf5 0%, #ffffff 52%, #eff6ff 100%);
             border: 1px solid #bbf7d0;
             box-shadow: 0 22px 55px rgba(15, 23, 42, 0.13);
         }
-        .welcome-icon {font-size: 74px; margin-bottom: 8px;}
-        .welcome-title {
-            font-size: clamp(38px, 6vw, 68px);
-            font-weight: 900;
-            line-height: 1.05;
-            color: #14532d;
-            margin: 0 0 18px 0;
-            letter-spacing: -1px;
-        }
-        .welcome-subtitle {
-            font-size: clamp(20px, 2.3vw, 30px);
-            font-weight: 750;
-            color: #0f172a;
-            line-height: 1.35;
-            margin-bottom: 16px;
-        }
-        .welcome-description {
-            max-width: 820px;
-            margin: 0 auto 30px auto;
-            color: #475569;
-            font-size: 17px;
-            line-height: 1.75;
-        }
-        .method-badge {
-            display: inline-block;
-            padding: 9px 18px;
-            margin-bottom: 26px;
-            border-radius: 999px;
-            background: #dcfce7;
-            color: #166534;
-            border: 1px solid #86efac;
-            font-weight: 800;
-        }
-        .welcome-footer {
-            margin-top: 26px;
-            color: #64748b;
-            font-size: 14px;
-        }
+        .login-icon {font-size: 64px; margin-bottom: 4px;}
+        .login-title {font-size: 42px; font-weight: 900; color: #14532d; margin-bottom: 8px;}
+        .login-subtitle {font-size: 21px; font-weight: 750; color: #0f172a; line-height: 1.4;}
+        .login-description {color: #64748b; margin: 14px auto 8px auto; max-width: 680px;}
+        .login-footer {text-align: center; color: #64748b; font-size: 13px; margin-top: 22px;}
         div.stButton > button {
-            min-height: 54px;
-            border-radius: 14px;
-            border: 0;
-            font-size: 18px;
-            font-weight: 800;
-            background: linear-gradient(90deg, #15803d, #0f766e);
-            color: white;
-            box-shadow: 0 10px 24px rgba(21, 128, 61, 0.24);
+            min-height: 50px; border-radius: 14px; border: 0; font-size: 17px;
+            font-weight: 800; background: linear-gradient(90deg, #15803d, #0f766e);
+            color: white; box-shadow: 0 10px 24px rgba(21, 128, 61, 0.22);
         }
-        div.stButton > button:hover {
-            color: white;
-            border: 0;
-            transform: translateY(-1px);
-        }
+        div.stButton > button:hover {color: white; border: 0; transform: translateY(-1px);}
         </style>
-        <div class="welcome-wrapper">
-            <div class="welcome-card">
-                <div class="welcome-icon">🎓</div>
-                <div class="welcome-title">SELAMAT DATANG</div>
-                <div class="welcome-subtitle">
-                    Sistem Klasifikasi Minat Pendidikan Tinggi<br>
-                    Siswa SMK Al-Ikhlas Losari
-                </div>
-                <div class="method-badge">Menggunakan Algoritma Naive Bayes</div>
-                <div class="welcome-description">
-                    Aplikasi ini membantu mengelompokkan minat siswa kelas XII untuk melanjutkan
-                    pendidikan ke perguruan tinggi berdasarkan data yang tersedia. Tekan tombol
-                    di bawah untuk masuk ke dashboard utama, melakukan prediksi, melihat data siswa,
-                    serta mempelajari hasil perhitungan probabilitas.
-                </div>
+        <div class="login-card">
+            <div class="login-icon">🎓</div>
+            <div class="login-title">LOGIN SISTEM</div>
+            <div class="login-subtitle">
+                Sistem Klasifikasi Minat Pendidikan Tinggi<br>
+                Siswa SMK Al-Ikhlas Losari
+            </div>
+            <div class="login-description">
+                Masukkan username dan password untuk mengakses dashboard klasifikasi Naive Bayes.
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    left_space, center_button, right_space = st.columns([1.6, 1, 1.6])
-    with center_button:
-        if st.button("🚀 MASUK KE DASHBOARD", use_container_width=True):
-            st.session_state.halaman_aktif = "dashboard"
-            st.rerun()
+    st.write("")
+    left, center, right = st.columns([1.15, 1.7, 1.15])
+    with center:
+        with st.form("login_form", clear_on_submit=False):
+            username_input = st.text_input("Username", placeholder="Masukkan username")
+            password_input = st.text_input("Password", type="password", placeholder="Masukkan password")
+            login_button = st.form_submit_button("🔐 LOGIN", use_container_width=True)
+
+        if login_button:
+            valid_username, valid_password = get_login_credentials()
+            if username_input == valid_username and password_input == valid_password:
+                st.session_state.authenticated = True
+                st.session_state.username = username_input
+                st.success("Login berhasil. Mengarahkan ke dashboard...")
+                st.rerun()
+            else:
+                st.error("Username atau password salah.")
+
+        with st.expander("Informasi akun demo"):
+            st.caption("Username: admin | Password: admin123")
 
     st.markdown(
-        '<div class="welcome-footer" style="text-align:center">© 2026 SMK Al-Ikhlas Losari — Sistem Klasifikasi Minat Pendidikan Tinggi</div>',
+        '<div class="login-footer">© 2026 SMK Al-Ikhlas Losari — Sistem Klasifikasi Minat Pendidikan Tinggi</div>',
         unsafe_allow_html=True,
     )
     st.stop()
@@ -406,8 +375,10 @@ def metric_card(label: str, value: str):
 st.sidebar.title("🎓 Naive Bayes")
 st.sidebar.caption("Klasifikasi Minat Pendidikan Tinggi")
 
-if st.sidebar.button("🏠 Kembali ke Halaman Depan", use_container_width=True):
-    st.session_state.halaman_aktif = "welcome"
+st.sidebar.success(f"Login sebagai: {st.session_state.username}")
+if st.sidebar.button("🚪 Logout", use_container_width=True):
+    st.session_state.authenticated = False
+    st.session_state.username = ""
     st.rerun()
 
 
