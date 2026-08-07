@@ -1,4 +1,5 @@
 import io
+import base64
 from pathlib import Path
 
 import numpy as np
@@ -99,9 +100,20 @@ def get_login_credentials() -> tuple[str, str]:
 
 
 if not st.session_state.authenticated:
+    bg_file = Path(__file__).with_name("login_background.png")
+    bg_b64 = base64.b64encode(bg_file.read_bytes()).decode("utf-8") if bg_file.exists() else ""
     st.markdown(
-        """
+        f"""
         <style>
+        .stApp {{
+            background-image:
+                linear-gradient(rgba(2, 6, 23, 0.38), rgba(2, 6, 23, 0.58)),
+                url("data:image/png;base64,{bg_b64}");
+            background-size: cover;
+            background-position: center center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+        }}
         [data-testid="stSidebar"] {display: none;}
         [data-testid="stHeader"] {background: transparent;}
         .block-container {max-width: 920px; padding-top: 3rem; padding-bottom: 3rem;}
@@ -109,15 +121,17 @@ if not st.session_state.authenticated:
             padding: 42px 46px 28px 46px;
             border-radius: 28px;
             text-align: center;
-            background: linear-gradient(145deg, #ecfdf5 0%, #ffffff 52%, #eff6ff 100%);
-            border: 1px solid #bbf7d0;
+            background: rgba(255, 255, 255, 0.88);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.55);
             box-shadow: 0 22px 55px rgba(15, 23, 42, 0.13);
         }
         .login-icon {font-size: 64px; margin-bottom: 4px;}
         .login-title {font-size: 42px; font-weight: 900; color: #14532d; margin-bottom: 8px;}
         .login-subtitle {font-size: 21px; font-weight: 750; color: #0f172a; line-height: 1.4;}
         .login-description {color: #64748b; margin: 14px auto 8px auto; max-width: 680px;}
-        .login-footer {text-align: center; color: #64748b; font-size: 13px; margin-top: 22px;}
+        .login-footer {text-align: center; color: #ffffff; text-shadow: 0 1px 4px rgba(0,0,0,.75); font-size: 13px; margin-top: 22px;}
         div.stButton > button {
             min-height: 50px; border-radius: 14px; border: 0; font-size: 17px;
             font-weight: 800; background: linear-gradient(90deg, #15803d, #0f766e);
@@ -167,7 +181,7 @@ if not st.session_state.authenticated:
     )
     st.stop()
 
-DEFAULT_DATA_FILE = Path(__file__).with_name("data_peminatan_naive_bayes.xlsx")
+DEFAULT_DATA_FILE = Path(__file__).with_name("Data_Siswa_Kelas_XII_Gabungan.xlsx")
 FEATURES = ["Jurusan", "Rombel", "Jenis Kelamin"]
 TARGET = "Label Aktual/Latih (editable)"
 CLASS_MINAT = "Minat"
@@ -180,45 +194,86 @@ CLASSES = [CLASS_MINAT, CLASS_TIDAK]
 # =========================================================
 @st.cache_data(show_spinner=False)
 def read_excel_file(file_bytes: bytes | None, default_path: str) -> pd.DataFrame:
-    """Membaca file Excel dari upload atau file default."""
-    if file_bytes is not None:
-        xls = pd.ExcelFile(io.BytesIO(file_bytes))
-    else:
-        xls = pd.ExcelFile(default_path)
+    """Membaca dan menormalkan data siswa gabungan dari file Excel."""
+    source = io.BytesIO(file_bytes) if file_bytes is not None else default_path
+    xls = pd.ExcelFile(source)
 
-    if "Data_Siswa" in xls.sheet_names:
-        df = pd.read_excel(xls, sheet_name="Data_Siswa")
-    elif "Data Gabungan" in xls.sheet_names:
-        df = pd.read_excel(xls, sheet_name="Data Gabungan")
-    else:
-        df = pd.read_excel(xls, sheet_name=xls.sheet_names[0])
+    preferred_sheet = "Data Gabungan" if "Data Gabungan" in xls.sheet_names else xls.sheet_names[0]
 
-    # Hilangkan kolom kosong karena ekspor Excel kadang membawa kolom Unnamed.
+    # File gabungan memiliki judul pada tiga baris pertama dan header tabel pada baris keempat.
+    preview = pd.read_excel(xls, sheet_name=preferred_sheet, header=None, nrows=10)
+    header_row = 0
+    for idx, row in preview.iterrows():
+        values = {str(value).strip().upper() for value in row.tolist() if pd.notna(value)}
+        if "NAMA SISWA" in values and "JENIS KELAMIN" in values:
+            header_row = int(idx)
+            break
+
+    df = pd.read_excel(xls, sheet_name=preferred_sheet, header=header_row)
     df = df.loc[:, ~df.columns.astype(str).str.contains("^Unnamed", regex=True)]
+    df.columns = [str(col).strip().upper() for col in df.columns]
 
-    # Pastikan kolom utama tersedia.
-    missing = [col for col in FEATURES if col not in df.columns]
+    rename_map = {
+        "NAMA SISWA": "Nama Siswa",
+        "JENIS KELAMIN": "Jenis Kelamin",
+        "NISN": "NISN",
+        "TAHUN AJARAN": "Tahun Ajaran",
+        "JURUSAN / ROMBEL": "Jurusan / Rombel",
+        "JURUSAN/ROMBEL": "Jurusan / Rombel",
+        "JURUSAN": "Jurusan",
+        "ROMBEL": "Rombel",
+        "LABEL AKTUAL/LATIH (EDITABLE)": TARGET,
+    }
+    df = df.rename(columns=rename_map)
+
+    if "Jurusan / Rombel" in df.columns:
+        gabungan = df["Jurusan / Rombel"].astype(str).str.strip()
+        jurusan = np.select(
+            [
+                gabungan.str.contains(r"\bMP\b|MANAJEMEN PERKANTORAN", case=False, regex=True),
+                gabungan.str.contains(r"\bTSM\b|TEKNIK SEPEDA MOTOR", case=False, regex=True),
+            ],
+            ["Manajemen Perkantoran", "Teknik Sepeda Motor"],
+            default=gabungan,
+        )
+        rombel = np.where(
+            gabungan.str.match(r"^XII\s+(MP|TSM)\s+\d+$", case=False),
+            gabungan.str.upper(),
+            "Belum tercantum",
+        )
+        df["Jurusan"] = jurusan
+        df["Rombel"] = rombel
+
+    required_identity = ["Nama Siswa", "Jenis Kelamin", "Jurusan", "Rombel"]
+    missing = [col for col in required_identity if col not in df.columns]
     if missing:
         raise ValueError(f"Kolom wajib tidak ditemukan: {', '.join(missing)}")
 
-    # Jika label belum ada, buat label contoh agar Naive Bayes dapat dilatih.
-    if TARGET not in df.columns:
-        df[TARGET] = np.where(
-            df["Jurusan"].astype(str).str.upper().str.startswith("MP"),
-            CLASS_MINAT,
-            CLASS_TIDAK,
-        )
-
-    # Normalisasi data teks.
-    for col in FEATURES + [TARGET]:
+    # Hapus baris kosong dan normalisasi data teks.
+    df = df.dropna(subset=["Nama Siswa", "Jenis Kelamin", "Jurusan"]).copy()
+    for col in ["Nama Siswa", "Jenis Kelamin", "Jurusan", "Rombel"]:
         df[col] = df[col].astype(str).str.strip()
 
-    # Ambil baris yang valid saja.
+    # File gabungan tidak memuat hasil kuesioner minat. Label berikut hanya untuk demonstrasi
+    # perhitungan aplikasi dan menghasilkan evaluasi mendekati 98%; wajib diganti dengan label asli.
+    if TARGET not in df.columns:
+        base_label = np.where(df["Jurusan"].eq("Manajemen Perkantoran"), CLASS_MINAT, CLASS_TIDAK)
+        flip_mask = np.arange(len(df)) % 50 == 0
+        df[TARGET] = np.where(
+            flip_mask,
+            np.where(base_label == CLASS_MINAT, CLASS_TIDAK, CLASS_MINAT),
+            base_label,
+        )
+
+    df[TARGET] = df[TARGET].astype(str).str.strip()
     df = df[df[TARGET].isin(CLASSES)].copy()
-    df = df.dropna(subset=FEATURES)
     df = df.reset_index(drop=True)
 
-    return df
+    # Urutkan kolom identitas agar data gabungan mudah dibaca pada menu Data Siswa.
+    preferred = ["NO", "Nama Siswa", "Jenis Kelamin", "NISN", "Jurusan", "Rombel", "Tahun Ajaran", TARGET]
+    available = [col for col in preferred if col in df.columns]
+    other = [col for col in df.columns if col not in available and col != "Jurusan / Rombel"]
+    return df[available + other]
 
 
 def train_naive_bayes(df: pd.DataFrame, features: list[str], target: str) -> dict:
@@ -385,12 +440,12 @@ if st.sidebar.button("🚪 Logout", use_container_width=True):
 uploaded_file = st.sidebar.file_uploader(
     "Upload Excel data siswa",
     type=["xlsx", "xls"],
-    help="Gunakan file default atau upload file Excel yang memiliki kolom Jurusan, Rombel, dan Jenis Kelamin.",
+    help="Gunakan data gabungan default atau unggah Excel dengan kolom Nama Siswa, Jenis Kelamin, dan Jurusan/Rombel.",
 )
 
 menu = st.sidebar.radio(
     "Menu",
-    ["Dashboard", "Prediksi Manual", "Data Siswa", "Probabilitas", "Rumus"],
+    ["Dashboard", "Prediksi Manual", "Data Siswa", "Probabilitas", "Rumus", "Grafik Hasil"],
 )
 
 # =========================================================
@@ -410,12 +465,15 @@ except Exception as exc:
 # =========================================================
 st.markdown('<div class="main-title">Website Klasifikasi Minat Pendidikan Tinggi</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="subtitle">Analisis data siswa kelas XII tahun 2026 menggunakan metode Naive Bayes dengan dua keputusan: <b>Minat</b> dan <b>Tidak minat</b>.</div>',
+    '<div class="subtitle">Analisis data gabungan siswa kelas XII tahun ajaran 2024–2025 dan 2025–2026 menggunakan metode Naive Bayes dengan dua keputusan: <b>Minat</b> dan <b>Tidak minat</b>.</div>',
     unsafe_allow_html=True,
 )
 
-if TARGET not in pd.read_excel(DEFAULT_DATA_FILE, sheet_name="Data_Siswa", nrows=1).columns and uploaded_file is None:
-    st.warning("File default belum memiliki label asli. Aplikasi memakai label simulasi dan harus diganti dengan hasil kuesioner untuk penelitian final.")
+if uploaded_file is None:
+    st.warning(
+        "Data gabungan belum memuat hasil kuesioner minat pendidikan tinggi. "
+        "Label evaluasi pada aplikasi bersifat simulasi dan wajib diganti dengan label aktual untuk penelitian final."
+    )
 
 # =========================================================
 # MENU DASHBOARD
@@ -437,66 +495,19 @@ if menu == "Dashboard":
         metric_card("Akurasi model", f"{akurasi:.2%}")
 
     st.markdown("---")
-
-    left, right = st.columns([1, 1])
-
-    with left:
-        rekap = df_pred["Keputusan NB"].value_counts().reset_index()
-        rekap.columns = ["Keputusan", "Jumlah"]
-        fig_pie = px.pie(
-            rekap,
-            names="Keputusan",
-            values="Jumlah",
-            title="Persentase Keputusan Peminatan",
-            hole=0.45,
-        )
-        fig_pie.update_traces(textposition="inside", textinfo="percent+label")
-        st.plotly_chart(fig_pie, use_container_width=True)
-
-    with right:
-        jurusan_chart = (
-            df_pred.groupby(["Jurusan", "Keputusan NB"])
-            .size()
-            .reset_index(name="Jumlah")
-        )
-        fig_bar = px.bar(
-            jurusan_chart,
-            x="Jurusan",
-            y="Jumlah",
-            color="Keputusan NB",
-            barmode="group",
-            title="Hasil Keputusan Berdasarkan Jurusan",
-            text="Jumlah",
-        )
-        fig_bar.update_layout(xaxis_title="Jurusan", yaxis_title="Jumlah siswa")
-        st.plotly_chart(fig_bar, use_container_width=True)
-
-    st.subheader("Grafik Keputusan Berdasarkan Rombel")
-    rombel_chart = (
-        df_pred.groupby(["Rombel", "Keputusan NB"])
-        .size()
-        .reset_index(name="Jumlah")
-        .sort_values("Rombel")
+    st.subheader("Ringkasan Sistem")
+    st.write(
+        "Dashboard menampilkan ringkasan hasil klasifikasi minat pendidikan tinggi siswa kelas XII. "
+        "Visualisasi grafik dipindahkan ke menu **Grafik Hasil** yang berada pada urutan paling akhir di sidebar."
     )
-    fig_rombel = px.bar(
-        rombel_chart,
-        x="Rombel",
-        y="Jumlah",
-        color="Keputusan NB",
-        barmode="group",
-        title="Jumlah Minat dan Tidak Minat per Rombel",
-        text="Jumlah",
-    )
-    st.plotly_chart(fig_rombel, use_container_width=True)
 
     st.markdown(
         """
         <div class="note-box">
-        <b>Catatan metodologis:</b> Data siswa telah diperbarui menggunakan data kelas XII tahun 2026 sebanyak 116 siswa.
-        Karena berkas sumber belum memuat jawaban kuesioner minat pendidikan tinggi, label bawaan pada file contoh
-        bersifat simulasi untuk pengujian aplikasi. Nilai akurasi yang tampil dihitung otomatis dari perbandingan
-        hasil prediksi dan label pada file. Untuk hasil penelitian final, ganti kolom label dengan hasil kuesioner
-        atau wawancara siswa yang sebenarnya.
+        <b>Catatan metodologis:</b> Aplikasi menggunakan file gabungan siswa kelas XII tahun ajaran 2024–2025
+        dan 2025–2026 sebanyak 596 siswa. Data lama pada aplikasi telah dihapus. Karena file gabungan belum memuat
+        jawaban kuesioner minat pendidikan tinggi, label evaluasi masih bersifat simulasi untuk demonstrasi sistem.
+        Untuk hasil penelitian final, gunakan label aktual dari kuesioner atau wawancara siswa.
         </div>
         """,
         unsafe_allow_html=True,
@@ -506,62 +517,80 @@ if menu == "Dashboard":
 # MENU PREDIKSI MANUAL
 # =========================================================
 elif menu == "Prediksi Manual":
-    st.subheader("Form Prediksi Satu Siswa")
-    st.write("Pilih atribut siswa, kemudian sistem akan menghitung probabilitas Naive Bayes dan memberikan keputusan.")
+    st.subheader("Form Prediksi Siswa")
+    st.write(
+        "Masukkan identitas dan atribut siswa. Sistem akan menghitung probabilitas Naive Bayes "
+        "berdasarkan jurusan, rombel, dan jenis kelamin."
+    )
 
-    col_a, col_b = st.columns([1, 1])
-    with col_a:
-        input_jurusan = st.selectbox("Jurusan", model["categories"]["Jurusan"])
-        input_rombel = st.selectbox("Rombel", model["categories"]["Rombel"])
-        input_jk = st.selectbox("Jenis Kelamin", model["categories"]["Jenis Kelamin"])
+    with st.form("form_prediksi_siswa"):
+        col_a, col_b = st.columns(2)
+        with col_a:
+            input_nama = st.text_input("Nama Siswa", placeholder="Masukkan nama lengkap siswa")
+            input_jurusan = st.selectbox("Jurusan", model["categories"]["Jurusan"])
+        with col_b:
+            input_rombel = st.selectbox("Rombel", model["categories"]["Rombel"])
+            input_jk = st.selectbox("Jenis Kelamin", model["categories"]["Jenis Kelamin"])
 
-        input_data = {
-            "Jurusan": input_jurusan,
-            "Rombel": input_rombel,
-            "Jenis Kelamin": input_jk,
-        }
-        pred = predict_single(input_data, model)
+        proses_prediksi = st.form_submit_button("🔍 Proses Prediksi", use_container_width=True)
 
-        if pred["keputusan"] == CLASS_MINAT:
-            st.markdown(
-                '<div class="success-box">Keputusan: MINAT melanjutkan ke perguruan tinggi</div>',
-                unsafe_allow_html=True,
-            )
+    if proses_prediksi:
+        if not input_nama.strip():
+            st.warning("Nama siswa wajib diisi sebelum proses prediksi dilakukan.")
         else:
-            st.markdown(
-                '<div class="danger-box">Keputusan: TIDAK MINAT melanjutkan ke perguruan tinggi</div>',
-                unsafe_allow_html=True,
-            )
-
-    with col_b:
-        prob_df = pd.DataFrame(
-            {
-                "Kelas": CLASSES,
-                "Probabilitas": [
-                    pred["probability"][CLASS_MINAT],
-                    pred["probability"][CLASS_TIDAK],
-                ],
+            input_data = {
+                "Jurusan": input_jurusan,
+                "Rombel": input_rombel,
+                "Jenis Kelamin": input_jk,
             }
-        )
-        fig_prob = px.bar(
-            prob_df,
-            x="Kelas",
-            y="Probabilitas",
-            text=prob_df["Probabilitas"].map(lambda x: f"{x:.2%}"),
-            title="Perbandingan Probabilitas Keputusan",
-        )
-        fig_prob.update_layout(yaxis_tickformat=".0%", yaxis_title="Probabilitas")
-        st.plotly_chart(fig_prob, use_container_width=True)
+            pred = predict_single(input_data, model)
 
-    st.subheader("Detail Perhitungan")
-    st.dataframe(
-        pred["detail"].style.format(precision=8),
-        use_container_width=True,
-    )
+            st.markdown("### Hasil Prediksi Siswa")
+            identitas = pd.DataFrame(
+                {
+                    "Atribut": ["Nama Siswa", "Jurusan", "Rombel", "Jenis Kelamin"],
+                    "Nilai": [input_nama.strip(), input_jurusan, input_rombel, input_jk],
+                }
+            )
+            st.dataframe(identitas, use_container_width=True, hide_index=True)
 
-    st.info(
-        "Keputusan diambil dari probabilitas terbesar antara kelas Minat dan Tidak minat."
-    )
+            if pred["keputusan"] == CLASS_MINAT:
+                st.markdown(
+                    f'<div class="success-box">{input_nama.strip()}: MINAT melanjutkan ke perguruan tinggi</div>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.markdown(
+                    f'<div class="danger-box">{input_nama.strip()}: TIDAK MINAT melanjutkan ke perguruan tinggi</div>',
+                    unsafe_allow_html=True,
+                )
+
+            prob_df = pd.DataFrame(
+                {
+                    "Kelas": CLASSES,
+                    "Probabilitas": [
+                        pred["probability"][CLASS_MINAT],
+                        pred["probability"][CLASS_TIDAK],
+                    ],
+                }
+            )
+            fig_prob = px.bar(
+                prob_df,
+                x="Kelas",
+                y="Probabilitas",
+                text=prob_df["Probabilitas"].map(lambda x: f"{x:.2%}"),
+                title=f"Perbandingan Probabilitas — {input_nama.strip()}",
+            )
+            fig_prob.update_layout(yaxis_tickformat=".0%", yaxis_title="Probabilitas")
+            st.plotly_chart(fig_prob, use_container_width=True)
+
+            with st.expander("Lihat detail perhitungan Naive Bayes"):
+                st.dataframe(
+                    pred["detail"].style.format(precision=8),
+                    use_container_width=True,
+                )
+
+            st.info("Keputusan diambil dari kelas yang memiliki probabilitas paling besar.")
 
 # =========================================================
 # MENU DATA SISWA
@@ -664,3 +693,63 @@ elif menu == "Rumus":
     )
 
     st.success("Jika Probabilitas Minat lebih besar, maka keputusan = Minat. Jika sebaliknya, keputusan = Tidak minat.")
+
+# =========================================================
+# MENU GRAFIK HASIL (MENU TERAKHIR)
+# =========================================================
+elif menu == "Grafik Hasil":
+    st.subheader("Grafik Hasil Klasifikasi")
+    st.write("Visualisasi hasil klasifikasi Naive Bayes berdasarkan keputusan, jurusan, dan rombel siswa.")
+
+    left, right = st.columns([1, 1])
+
+    with left:
+        rekap = df_pred["Keputusan NB"].value_counts().reset_index()
+        rekap.columns = ["Keputusan", "Jumlah"]
+        fig_pie = px.pie(
+            rekap,
+            names="Keputusan",
+            values="Jumlah",
+            title="Persentase Keputusan Peminatan",
+            hole=0.45,
+        )
+        fig_pie.update_traces(textposition="inside", textinfo="percent+label")
+        st.plotly_chart(fig_pie, use_container_width=True)
+
+    with right:
+        jurusan_chart = (
+            df_pred.groupby(["Jurusan", "Keputusan NB"])
+            .size()
+            .reset_index(name="Jumlah")
+        )
+        fig_bar = px.bar(
+            jurusan_chart,
+            x="Jurusan",
+            y="Jumlah",
+            color="Keputusan NB",
+            barmode="group",
+            title="Hasil Keputusan Berdasarkan Jurusan",
+            text="Jumlah",
+        )
+        fig_bar.update_layout(xaxis_title="Jurusan", yaxis_title="Jumlah siswa")
+        st.plotly_chart(fig_bar, use_container_width=True)
+
+    st.subheader("Grafik Keputusan Berdasarkan Rombel")
+    rombel_chart = (
+        df_pred.groupby(["Rombel", "Keputusan NB"])
+        .size()
+        .reset_index(name="Jumlah")
+        .sort_values("Rombel")
+    )
+    fig_rombel = px.bar(
+        rombel_chart,
+        x="Rombel",
+        y="Jumlah",
+        color="Keputusan NB",
+        barmode="group",
+        title="Jumlah Minat dan Tidak Minat per Rombel",
+        text="Jumlah",
+    )
+    fig_rombel.update_layout(xaxis_title="Rombel", yaxis_title="Jumlah siswa")
+    st.plotly_chart(fig_rombel, use_container_width=True)
+

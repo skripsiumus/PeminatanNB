@@ -1,6 +1,6 @@
 # Streamlit Naive Bayes — SMK Al-Ikhlas Losari
 
-Aplikasi klasifikasi minat pendidikan tinggi siswa kelas XII menggunakan algoritma Naive Bayes.
+Aplikasi klasifikasi minat pendidikan tinggi siswa kelas XII menggunakan algoritma Naive Bayes dengan data gabungan tahun ajaran 2024–2025 dan 2025–2026 sebanyak 596 siswa.
 
 ## Login demo lokal
 
@@ -19,7 +19,7 @@ streamlit run app.py
 ## Deploy ke Streamlit Community Cloud
 
 1. Buat repository GitHub baru.
-2. Unggah `app.py`, `requirements.txt`, dan `data_peminatan_naive_bayes.xlsx`.
+2. Unggah `app.py`, `requirements.txt`, dan `Data_Siswa_Kelas_XII_Gabungan.xlsx`.
 3. Masuk ke Streamlit Community Cloud dan pilih **Create app**.
 4. Pilih repository, branch `main`, dan main file `app.py`.
 5. Buka **Advanced settings > Secrets**, lalu isi:
