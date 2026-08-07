@@ -102,18 +102,17 @@ def get_login_credentials() -> tuple[str, str]:
 if not st.session_state.authenticated:
     bg_file = Path(__file__).with_name("login_background.png")
     bg_b64 = base64.b64encode(bg_file.read_bytes()).decode("utf-8") if bg_file.exists() else ""
-    st.markdown(
-        f"""
+    login_css_html = """
         <style>
-        .stApp {{
+        .stApp {
             background-image:
                 linear-gradient(rgba(2, 6, 23, 0.38), rgba(2, 6, 23, 0.58)),
-                url("data:image/png;base64,{bg_b64}");
+                url("data:image/png;base64,__BG_IMAGE__");
             background-size: cover;
             background-position: center center;
             background-repeat: no-repeat;
             background-attachment: fixed;
-        }}
+        }
         [data-testid="stSidebar"] {display: none;}
         [data-testid="stHeader"] {background: transparent;}
         .block-container {max-width: 920px; padding-top: 3rem; padding-bottom: 3rem;}
@@ -150,9 +149,8 @@ if not st.session_state.authenticated:
                 Masukkan username dan password untuk mengakses dashboard klasifikasi Naive Bayes.
             </div>
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+        """.replace("__BG_IMAGE__", bg_b64)
+    st.markdown(login_css_html, unsafe_allow_html=True)
 
     st.write("")
     left, center, right = st.columns([1.15, 1.7, 1.15])
